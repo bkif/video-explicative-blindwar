@@ -1,0 +1,367 @@
+:root {
+  color-scheme: dark;
+  --bw-obsidian: #080612;
+  --bw-obsidian-mid: #120d24;
+  --bw-marble: #f7f2e6;
+  --bw-gold: #f8d878;
+  --bw-gold-rich: #d4a039;
+  --bw-violet: #a855f7;
+  --bw-cyan: #22d3ee;
+  --bw-text: #f8fafc;
+  --bw-muted: #cbd5e1;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: var(--bw-obsidian);
+  color: var(--bw-text);
+  font-family: "Liberation Sans", "DejaVu Sans", system-ui, -apple-system, sans-serif;
+}
+
+.bw-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    radial-gradient(circle at 80% 25%, rgba(124, 58, 237, 0.25), transparent 45%),
+    radial-gradient(circle at 20% 20%, rgba(248, 216, 120, 0.12), transparent 45%),
+    linear-gradient(125deg, #1a1528 0%, #090714 54%, #120d24 100%);
+}
+
+.bw-split-seam {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    102deg,
+    rgba(247, 242, 230, 0.08) 0%,
+    rgba(247, 242, 230, 0.06) 47.9%,
+    rgba(248, 216, 120, 0.35) 48%,
+    rgba(34, 211, 238, 0.35) 48.2%,
+    rgba(8, 6, 18, 0) 48.4%
+  );
+}
+
+.bw-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem);
+  border-bottom: 1px solid rgba(212, 160, 57, 0.2);
+}
+
+.bw-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.bw-studio {
+  font-family: "Liberation Mono", "DejaVu Sans Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--bw-gold);
+  text-transform: uppercase;
+}
+
+.bw-title-sm {
+  font-family: "Liberation Serif", "DejaVu Serif", Georgia, serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.bw-main {
+  position: relative;
+  z-index: 1;
+  width: min(1140px, 92vw);
+  margin: 0 auto;
+  padding: 2.5rem 0;
+  display: grid;
+  gap: 2.25rem;
+}
+
+.bw-hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bw-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  background: rgba(17, 13, 36, 0.85);
+  border: 1px solid rgba(212, 160, 57, 0.45);
+  color: var(--bw-gold);
+  font-family: "Liberation Mono", "DejaVu Sans Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+.bw-hero h1 {
+  margin: 0;
+  font-family: "Liberation Serif", "DejaVu Serif", Georgia, serif;
+  font-size: clamp(2.6rem, 6vw, 4.75rem);
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  background: linear-gradient(90deg, var(--bw-gold) 0%, #ffffff 48%, var(--bw-cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bw-hero p {
+  margin: 0;
+  max-width: 640px;
+  color: var(--bw-muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.bw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.bw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.bw-btn:focus-visible {
+  outline: 2px solid var(--bw-cyan);
+  outline-offset: 3px;
+}
+
+.bw-btn-primary {
+  background: linear-gradient(90deg, var(--bw-gold-rich), #7c3aed);
+  color: #ffffff;
+  border-color: rgba(248, 216, 120, 0.55);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+}
+
+.bw-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(34, 211, 238, 0.35);
+}
+
+.bw-btn-primary:active {
+  transform: translateY(0);
+}
+
+.bw-btn-subtle {
+  background: rgba(18, 13, 36, 0.85);
+  color: var(--bw-gold);
+  border-color: rgba(212, 160, 57, 0.45);
+}
+
+.bw-btn-subtle:hover {
+  background: rgba(34, 24, 68, 0.95);
+  border-color: var(--bw-cyan);
+  color: var(--bw-cyan);
+}
+
+.bw-btn-subtle:active {
+  transform: scale(0.98);
+}
+
+.bw-rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.bw-rule-card {
+  padding: 1.15rem 1.25rem;
+  border-radius: 16px;
+  background: rgba(17, 13, 36, 0.82);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.bw-rule-card h2 {
+  margin: 0 0 0.4rem;
+  font-size: 0.92rem;
+  font-family: "Liberation Mono", "DejaVu Sans Mono", monospace;
+  color: var(--bw-gold);
+}
+
+.bw-rule-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--bw-muted);
+}
+
+.bw-footer {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 1.25rem;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  border-top: 1px solid rgba(168, 85, 247, 0.16);
+}
+
+/* Modal Player */
+.bw-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(5, 4, 12, 0.82);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.bw-modal-panel {
+  width: min(1040px, 96vw);
+  max-height: 94vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #120d26 0%, #090714 100%);
+  border: 1.5px solid rgba(212, 160, 57, 0.5);
+  border-radius: 20px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75);
+}
+
+.bw-modal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bw-modal-title {
+  margin: 0;
+  font-family: "Liberation Serif", "DejaVu Serif", Georgia, serif;
+  font-size: 1.25rem;
+  color: var(--bw-gold);
+}
+
+.bw-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #05040b;
+  border-radius: 14px;
+  border: 1px solid rgba(168, 85, 247, 0.32);
+  padding: 0.5rem;
+}
+
+.bw-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+}
+
+.bw-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bw-control-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bw-ctrl-btn {
+  padding: 0.45rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(24, 18, 48, 0.9);
+  color: var(--bw-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.bw-ctrl-btn:hover {
+  border-color: var(--bw-cyan);
+  color: var(--bw-cyan);
+}
+
+.bw-ctrl-btn:focus-visible {
+  outline: 2px solid var(--bw-cyan);
+  outline-offset: 2px;
+}
+
+.bw-ctrl-btn:active {
+  transform: scale(0.97);
+}
+
+.bw-ctrl-btn[aria-pressed='true'] {
+  background: rgba(124, 58, 237, 0.35);
+  border-color: var(--bw-gold);
+  color: var(--bw-gold);
+}
+
+.bw-scrubber {
+  width: 100%;
+  accent-color: var(--bw-cyan);
+  cursor: pointer;
+}
+
+.bw-chapters-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+@media (max-width: 680px) {
+  .bw-chapters-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bw-btn,
+  .bw-ctrl-btn {
+    transition: none;
+  }
+}
