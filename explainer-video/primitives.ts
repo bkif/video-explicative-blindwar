@@ -187,7 +187,7 @@ export function drawBoard9x9(
     ctx.font = `700 14px ${FONT_MONO}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('9 × 9 GRID', bx + badgeW / 2, by + badgeH / 2 + 0.5);
+    ctx.fillText('GRILLE 9 × 9', bx + badgeW / 2, by + badgeH / 2 + 0.5);
   }
 
   ctx.restore();
@@ -316,7 +316,7 @@ function drawPieceSilhouette(
 
     // Queen jewels
     const tips = [-0.56, -0.22, 0.22, 0.56];
-    const yTips = [-0.38, -0.60, -0.60, -0.38];
+    const yTips = [-0.38, -0.6, -0.6, -0.38];
     for (let i = 0; i < tips.length; i++) {
       ctx.beginPath();
       ctx.arc(r * (tips[i] ?? 0), r * (yTips[i] ?? 0), r * 0.09, 0, Math.PI * 2);
@@ -529,11 +529,11 @@ export function drawAdjacencyScannerPulse(
   ctx.arc(tPos.cx, tPos.cy, ringR, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Floating "UNMASKED!" tag
+  // Floating "REINE RÉVÉLÉE" tag
   if (t > 0.3) {
     const tagAlpha = clamp((t - 0.3) / 0.25, 0, 1);
     ctx.globalAlpha = tagAlpha;
-    const tagW = 128;
+    const tagW = 136;
     const tagH = 26;
     const tx = tPos.cx - tagW / 2;
     const ty = tPos.cy - pPos.cellSize * 0.78;
@@ -548,7 +548,7 @@ export function drawAdjacencyScannerPulse(
     ctx.font = `700 12px ${FONT_MONO}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('QUEEN REVEALED', tPos.cx, ty + tagH / 2 + 0.5);
+    ctx.fillText('REINE RÉVÉLÉE', tPos.cx, ty + tagH / 2 + 0.5);
   }
 
   ctx.restore();
@@ -667,7 +667,7 @@ export function drawPowerCard(ctx: RenderContext2D, opts: PowerCardOptions): voi
     ctx.fillText(opts.subtitle, 0, height * 0.31, width * 0.86);
 
     // Cooldown pill
-    const pillW = width * 0.64;
+    const pillW = width * 0.68;
     const pillH = 26;
     traceRoundedRect(ctx, -pillW / 2, height * 0.4 - pillH / 2, pillW, pillH, 13);
     ctx.fillStyle = 'rgba(34, 211, 238, 0.16)';
@@ -677,7 +677,7 @@ export function drawPowerCard(ctx: RenderContext2D, opts: PowerCardOptions): voi
     ctx.stroke();
     ctx.fillStyle = BLIND_WAR_THEME.cyanRune;
     ctx.font = `700 12px ${FONT_MONO}`;
-    ctx.fillText(`COOLDOWN: ${opts.cooldownTurns} TURNS`, 0, height * 0.4 + 0.5);
+    ctx.fillText(`RECHARGE : ${opts.cooldownTurns} TOURS`, 0, height * 0.4 + 0.5);
   }
 
   ctx.restore();
@@ -700,13 +700,13 @@ export function drawChapterProgressBar(
   isVertical: boolean,
 ): void {
   const marginX = isVertical ? 48 : 84;
-  const barH = isVertical ? 64 : 56;
-  const y = height - barH - (isVertical ? 44 : 28);
+  const barH = isVertical ? 58 : 54;
+  const y = height - barH - (isVertical ? 120 : 24);
   const totalW = width - marginX * 2;
 
   ctx.save();
   traceRoundedRect(ctx, marginX, y, totalW, barH, 16);
-  ctx.fillStyle = 'rgba(10, 8, 22, 0.82)';
+  ctx.fillStyle = 'rgba(10, 8, 22, 0.84)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(212, 160, 57, 0.38)';
   ctx.lineWidth = 1.5;
@@ -715,7 +715,7 @@ export function drawChapterProgressBar(
   const innerPad = 14;
   const segGap = 8;
   const segAreaW = totalW - innerPad * 2;
-  const trackY = y + barH - 14;
+  const trackY = y + barH - 13;
   const trackH = 5;
 
   for (let i = 0; i < chapters.length; i++) {
@@ -752,7 +752,7 @@ export function drawChapterProgressBar(
     ctx.font = `${isActive ? 700 : 600} ${isVertical ? 14 : 12}px ${FONT_MONO}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(labelText, sx + sw / 2, y + 21, sw - 4);
+    ctx.fillText(labelText, sx + sw / 2, y + 20, sw - 4);
   }
 
   ctx.restore();

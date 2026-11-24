@@ -14,14 +14,14 @@ import {
   easeOutBack,
   easeOutCubic,
   lerp,
-  progress,
   spring,
 } from './primitives';
 import {
-  STORYBOARD_CHAPTERS,
-  VIDEO_FPS,
+  MasterTimeline,
+  ResolvedChapter,
   getChapterAtFrame,
 } from './storyboard';
+import { drawSubtitleOverlay, getActiveSubtitleCue } from './subtitles';
 import {
   AspectMode,
   BLIND_WAR_THEME,
@@ -35,6 +35,10 @@ import {
   getDimensions,
   traceRoundedRect,
 } from './theme';
+
+export interface RenderOptions {
+  readonly showSubtitles?: boolean;
+}
 
 interface LayoutZones {
   width: number;
@@ -54,9 +58,9 @@ function computeLayout(aspectRatio: AspectMode): LayoutZones {
       width,
       height,
       isVertical: false,
-      headerY: 74,
-      boardRect: { x: 130, y: 190, size: 710 },
-      panelRect: { x: 910, y: 190, w: 880, h: 710 },
+      headerY: 66,
+      boardRect: { x: 145, y: 174, size: 685 },
+      panelRect: { x: 900, y: 174, w: 890, h: 685 },
     };
   }
 
@@ -64,10 +68,14 @@ function computeLayout(aspectRatio: AspectMode): LayoutZones {
     width,
     height,
     isVertical: true,
-    headerY: 96,
-    boardRect: { x: 150, y: 285, size: 780 },
-    panelRect: { x: 76, y: 1100, w: 928, h: 645 },
+    headerY: 82,
+    boardRect: { x: 175, y: 238, size: 730 },
+    panelRect: { x: 76, y: 995, w: 928, h: 560 },
   };
+}
+
+function segmentProgress(t: number, start: number, span: number): number {
+  return clamp((t - start) / Math.max(0.0001, span), 0, 1);
 }
 
 function drawChapterHeader(
@@ -76,34 +84,33 @@ function drawChapterHeader(
   label: string,
   headline: string,
   caption: string,
-  enterT: number,
+  chapterT: number,
 ): void {
   const { width, isVertical, headerY } = layout;
-  const alpha = easeOutCubic(clamp(enterT * 2.2, 0, 1));
-  const slideY = (1 - easeOutCubic(clamp(enterT * 1.8, 0, 1))) * 18;
+  const enterT = segmentProgress(chapterT, 0, 0.16);
+  const alpha = easeOutCubic(enterT);
+  const slideY = (1 - easeOutCubic(enterT)) * 18;
 
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  // Subtle dark glass header pill so white typography stays crisp across split seam
   if (isVertical) {
     const hdrW = width - 64;
-    const hdrH = 172;
-    traceRoundedRect(ctx, 32, headerY - 52 + slideY, hdrW, hdrH, 22);
-    ctx.fillStyle = 'rgba(10, 8, 22, 0.78)';
+    const hdrH = 166;
+    traceRoundedRect(ctx, 32, headerY - 50 + slideY, hdrW, hdrH, 22);
+    ctx.fillStyle = 'rgba(10, 8, 22, 0.8)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(212, 160, 57, 0.3)';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(212, 160, 57, 0.32)';
+    ctx.lineWidth = 1.4;
     ctx.stroke();
   }
 
-  // Chapter pill + MHLGames studio tag
-  const pillW = isVertical ? 300 : 280;
+  const pillW = isVertical ? 340 : 320;
   const pillH = 34;
   const px = width / 2 - pillW / 2;
   const py = headerY - 38 + slideY;
   traceRoundedRect(ctx, px, py, pillW, pillH, 17);
-  ctx.fillStyle = 'rgba(13, 10, 28, 0.85)';
+  ctx.fillStyle = 'rgba(13, 10, 28, 0.88)';
   ctx.fill();
   ctx.strokeStyle = BLIND_WAR_THEME.goldRich;
   ctx.lineWidth = 1.6;
@@ -115,18 +122,16 @@ function drawChapterHeader(
     maxWidth: pillW - 24,
   });
 
-  // Main chapter headline
-  drawTextWithShadow(ctx, headline, width / 2, headerY + 26 + slideY, {
-    font: `700 ${isVertical ? 46 : 44}px ${FONT_DISPLAY}`,
+  drawTextWithShadow(ctx, headline, width / 2, headerY + 24 + slideY, {
+    font: `700 ${isVertical ? 44 : 42}px ${FONT_DISPLAY}`,
     color: BLIND_WAR_THEME.textLight,
     shadowColor: 'rgba(124, 58, 237, 0.7)',
     shadowBlur: 18,
     maxWidth: width - (isVertical ? 96 : 240),
   });
 
-  // Concise 1-line rule caption
-  drawTextWithShadow(ctx, caption, width / 2, headerY + (isVertical ? 78 : 70) + slideY, {
-    font: `500 ${isVertical ? 24 : 22}px ${FONT_SANS}`,
+  drawTextWithShadow(ctx, caption, width / 2, headerY + (isVertical ? 74 : 68) + slideY, {
+    font: `500 ${isVertical ? 22 : 21}px ${FONT_SANS}`,
     color: BLIND_WAR_THEME.textSoft,
     shadowColor: 'rgba(0, 0, 0, 0.85)',
     shadowBlur: 10,
@@ -163,52 +168,48 @@ function drawTacticalPanelFrame(
 function renderHookChapter(
   ctx: RenderContext2D,
   layout: LayoutZones,
-  localFrame: number,
-  durationFrames: number,
+  chapterT: number,
   timeSec: number,
 ): void {
   const { width, height, isVertical } = layout;
-  const wipeT = easeInOutQuart(progress(localFrame, 0, durationFrames * 0.34));
+  const wipeT = easeInOutQuart(segmentProgress(chapterT, 0, 0.34));
   const splitRatio = lerp(0.06, 0.5, wipeT);
 
   drawSplitDualityBackground(ctx, width, height, splitRatio, timeSec, 1);
 
-  // Subtle side watermarks ("BLIND" on marble left, "WAR" on cosmic right)
-  const wmAlpha = easeOutCubic(progress(localFrame, 12, 28)) * 0.14;
+  const wmAlpha = easeOutCubic(segmentProgress(chapterT, 0.08, 0.22)) * 0.14;
   ctx.save();
   ctx.globalAlpha = wmAlpha;
-  drawTextWithShadow(ctx, 'BLIND', width * 0.22, height * (isVertical ? 0.24 : 0.48), {
+  drawTextWithShadow(ctx, 'BLIND', width * 0.22, height * (isVertical ? 0.22 : 0.45), {
     font: `700 ${isVertical ? 110 : 148}px ${FONT_DISPLAY}`,
     color: BLIND_WAR_THEME.goldDeep,
   });
-  drawTextWithShadow(ctx, 'WAR', width * 0.78, height * (isVertical ? 0.24 : 0.48), {
+  drawTextWithShadow(ctx, 'WAR', width * 0.78, height * (isVertical ? 0.22 : 0.45), {
     font: `700 ${isVertical ? 110 : 148}px ${FONT_DISPLAY}`,
     color: BLIND_WAR_THEME.cyanRune,
   });
   ctx.restore();
 
-  // Central winged masquerade crown emblem
-  const emblemT = spring(progress(localFrame, 10, 42));
-  const maskTease = Math.sin(progress(localFrame, 48, 55) * Math.PI) * 0.32;
-  const emblemScale = (isVertical ? 1.55 : 1.45) * Math.max(0.01, emblemT);
-  const emblemY = height * (isVertical ? 0.36 : 0.39);
+  const emblemT = spring(segmentProgress(chapterT, 0.08, 0.32));
+  const maskTease = Math.sin(segmentProgress(chapterT, 0.4, 0.45) * Math.PI) * 0.32;
+  const emblemScale = (isVertical ? 1.5 : 1.4) * Math.max(0.01, emblemT);
+  const emblemY = height * (isVertical ? 0.33 : 0.36);
 
   ctx.save();
-  ctx.globalAlpha = easeOutCubic(progress(localFrame, 8, 22));
+  ctx.globalAlpha = easeOutCubic(segmentProgress(chapterT, 0.06, 0.18));
   drawWingedMasqueradeEmblem(ctx, width / 2, emblemY, emblemScale, maskTease, timeSec);
   ctx.restore();
 
-  // Title plaque
-  const titleT = easeOutCubic(progress(localFrame, 26, 28));
-  const titleY = emblemY + (isVertical ? 265 : 222);
+  const titleT = easeOutCubic(segmentProgress(chapterT, 0.2, 0.24));
+  const titleY = emblemY + (isVertical ? 255 : 215);
 
   ctx.save();
   ctx.globalAlpha = titleT;
 
   const plaqueW = isVertical ? 840 : 860;
-  const plaqueH = isVertical ? 262 : 244;
-  traceRoundedRect(ctx, width / 2 - plaqueW / 2, titleY - 64, plaqueW, plaqueH, 24);
-  ctx.fillStyle = 'rgba(10, 8, 22, 0.84)';
+  const plaqueH = isVertical ? 255 : 238;
+  traceRoundedRect(ctx, width / 2 - plaqueW / 2, titleY - 62, plaqueW, plaqueH, 24);
+  ctx.fillStyle = 'rgba(10, 8, 22, 0.85)';
   ctx.fill();
   const plaqueBorder = ctx.createLinearGradient(
     width / 2 - plaqueW / 2,
@@ -223,7 +224,7 @@ function renderHookChapter(
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  drawTextWithShadow(ctx, 'HOW TO PLAY  ·  MHLGAMES', width / 2, titleY - 26, {
+  drawTextWithShadow(ctx, 'COMMENT JOUER  ·  MHLGAMES', width / 2, titleY - 26, {
     font: `700 ${isVertical ? 20 : 18}px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.goldBright,
   });
@@ -237,7 +238,7 @@ function renderHookChapter(
 
   drawTextWithShadow(
     ctx,
-    'Strategy · Memory · Bluffing · Arcane Powers',
+    'Stratégie · Mémoire · Bluff · Pouvoirs',
     width / 2,
     titleY + 98,
     {
@@ -249,9 +250,9 @@ function renderHookChapter(
 
   drawTextWithShadow(
     ctx,
-    'Tactical Chess Variant  ·  Ages 10–50',
+    'Variante tactique d’échecs  ·  10–50 ans',
     width / 2,
-    titleY + 142,
+    titleY + 140,
     {
       font: `600 ${isVertical ? 19 : 18}px ${FONT_MONO}`,
       color: BLIND_WAR_THEME.textSoft,
@@ -265,22 +266,19 @@ function renderHookChapter(
 function renderBoardAndFogChapter(
   ctx: RenderContext2D,
   layout: LayoutZones,
-  localFrame: number,
-  durationFrames: number,
+  chapter: ResolvedChapter,
+  chapterT: number,
   timeSec: number,
 ): void {
   const { width, height, boardRect, panelRect, isVertical } = layout;
-  const ch = STORYBOARD_CHAPTERS[1]!;
 
-  drawSplitDualityBackground(ctx, width, height, 0.22, timeSec, 0.72);
-  const enterT = progress(localFrame, 0, 28);
-  drawChapterHeader(ctx, layout, ch.label, ch.headline, ch.caption, enterT);
+  drawSplitDualityBackground(ctx, width, height, isVertical ? 0.16 : 0.22, timeSec, 0.72);
+  drawChapterHeader(ctx, layout, chapter.label, chapter.headline, chapter.caption, chapterT);
 
-  const boardFade = easeOutCubic(progress(localFrame, 0, 22));
+  const boardFade = easeOutCubic(segmentProgress(chapterT, 0, 0.16));
   drawBoard9x9(ctx, boardRect, { fadeIn: boardFade, showGridBadge: true });
 
-  // Fog toggle progress: 0..0.38 = Your View (revealed), 0.38..0.62 = transforms to Masked Pawns!
-  const disguiseT = easeInOutQuart(progress(localFrame, durationFrames * 0.34, durationFrames * 0.24));
+  const disguiseT = easeInOutQuart(segmentProgress(chapterT, 0.34, 0.24));
   const isOpponentView = disguiseT > 0.5;
 
   const lightPieces: ReadonlyArray<{ type: PieceType; col: number; row: number }> = [
@@ -314,7 +312,6 @@ function renderBoardAndFogChapter(
     const p = darkPieces[i];
     if (!p) continue;
     const pos = boardSquareCenter(boardRect, p.col, p.row);
-    // Staggered fog descent
     const localDisguise = clamp((disguiseT - i * 0.04) / 0.68, 0, 1);
     drawChessPiece(ctx, pos.cx, pos.cy, pos.cellSize, p.type, 'dark', {
       masked: localDisguise > 0.02,
@@ -324,7 +321,6 @@ function renderBoardAndFogChapter(
     });
   }
 
-  // Right / Bottom Tactical Panel explaining Fog of Deception
   drawTacticalPanelFrame(
     ctx,
     panelRect,
@@ -337,12 +333,11 @@ function renderBoardAndFogChapter(
   const pw = panelRect.w;
   const ph = panelRect.h;
 
-  // POV Switch Pill
-  const pillW = Math.min(pw - 80, 420);
-  const pillH = 48;
+  const pillW = Math.min(pw - 80, 440);
+  const pillH = 44;
   const pillX = px + pw / 2 - pillW / 2;
-  const pillY = py + 34;
-  traceRoundedRect(ctx, pillX, pillY, pillW, pillH, 24);
+  const pillY = py + 28;
+  traceRoundedRect(ctx, pillX, pillY, pillW, pillH, 22);
   ctx.fillStyle = isOpponentView ? 'rgba(124, 58, 237, 0.3)' : 'rgba(212, 160, 57, 0.24)';
   ctx.fill();
   ctx.strokeStyle = isOpponentView ? BLIND_WAR_THEME.cyanRune : BLIND_WAR_THEME.goldBright;
@@ -351,73 +346,70 @@ function renderBoardAndFogChapter(
 
   drawTextWithShadow(
     ctx,
-    isOpponentView ? "OPPONENT'S VIEW: ALL MASKED" : 'TRUE BOARD IDENTITIES',
+    isOpponentView ? 'VUE ADVERSAIRE : TOUT MASQUÉ' : 'IDENTITÉS RÉELLES',
     px + pw / 2,
     pillY + pillH / 2 + 1,
     {
-      font: `700 18px ${FONT_MONO}`,
+      font: `700 17px ${FONT_MONO}`,
       color: isOpponentView ? BLIND_WAR_THEME.cyanRune : BLIND_WAR_THEME.goldBright,
       maxWidth: pillW - 28,
     },
   );
 
-  // Showcase transformation row inside panel
-  const rowY = py + (isVertical ? 215 : 240);
+  const rowY = py + (isVertical ? 190 : 230);
   const sampleTypes: readonly PieceType[] = ['queen', 'elite', 'knight'];
-  const sampleNames = ['QUEEN', 'ELITE', 'KNIGHT'] as const;
-  const colSpan = (pw - 120) / 3;
+  const sampleNames = ['REINE', 'ÉLITE', 'CAVALIER'] as const;
+  const colSpan = (pw - 110) / 3;
 
   for (let i = 0; i < 3; i++) {
-    const scx = px + 60 + colSpan * (i + 0.5);
+    const scx = px + 55 + colSpan * (i + 0.5);
     const pt = sampleTypes[i]!;
     const pName = sampleNames[i]!;
 
-    // Card slot
-    traceRoundedRect(ctx, scx - 86, rowY - 78, 172, 174, 16);
+    traceRoundedRect(ctx, scx - 86, rowY - 72, 172, 162, 16);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
     ctx.fill();
     ctx.strokeStyle = isOpponentView ? 'rgba(168, 85, 247, 0.45)' : 'rgba(248, 216, 120, 0.35)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    drawChessPiece(ctx, scx, rowY - 12, 86, pt, 'dark', {
+    drawChessPiece(ctx, scx, rowY - 12, 82, pt, 'dark', {
       masked: disguiseT > 0.05,
       maskLift: 1 - disguiseT,
       timeSec,
     });
 
-    drawTextWithShadow(ctx, isOpponentView ? 'MASKED PAWN ?' : pName, scx, rowY + 66, {
+    drawTextWithShadow(ctx, isOpponentView ? 'PION MASQUÉ ?' : pName, scx, rowY + 62, {
       font: `700 15px ${FONT_MONO}`,
       color: isOpponentView ? BLIND_WAR_THEME.violetGlow : BLIND_WAR_THEME.goldBright,
       maxWidth: 156,
     });
   }
 
-  // Key takeaway lines at bottom of panel
-  const infoY = py + ph - (isVertical ? 145 : 175);
-  drawTextWithShadow(ctx, 'FOG OF DECEPTION', px + pw / 2, infoY, {
-    font: `700 ${isVertical ? 28 : 30}px ${FONT_DISPLAY}`,
+  const infoY = py + ph - (isVertical ? 128 : 168);
+  drawTextWithShadow(ctx, 'BROUILLARD DE DUPLICITÉ', px + pw / 2, infoY, {
+    font: `700 ${isVertical ? 26 : 28}px ${FONT_DISPLAY}`,
     color: BLIND_WAR_THEME.textLight,
     maxWidth: pw - 72,
   });
   drawTextWithShadow(
     ctx,
-    'Expanded 9×9 battlefield hides Queens & Elite threats.',
+    'Une Reine peut se cacher sous l’apparence d’un simple pion.',
     px + pw / 2,
-    infoY + 46,
+    infoY + 42,
     {
-      font: `500 ${isVertical ? 21 : 22}px ${FONT_SANS}`,
+      font: `500 ${isVertical ? 20 : 21}px ${FONT_SANS}`,
       color: BLIND_WAR_THEME.textSoft,
       maxWidth: pw - 72,
     },
   );
   drawTextWithShadow(
     ctx,
-    'Use memory & bluffing to track disguised enemy ranks.',
+    'Mémorisez chaque déplacement pour déjouer le bluff.',
     px + pw / 2,
-    infoY + 84,
+    infoY + 78,
     {
-      font: `600 ${isVertical ? 21 : 22}px ${FONT_SANS}`,
+      font: `600 ${isVertical ? 20 : 21}px ${FONT_SANS}`,
       color: BLIND_WAR_THEME.cyanRune,
       maxWidth: pw - 72,
     },
@@ -427,25 +419,22 @@ function renderBoardAndFogChapter(
 function renderPawnScoutChapter(
   ctx: RenderContext2D,
   layout: LayoutZones,
-  localFrame: number,
-  durationFrames: number,
+  chapter: ResolvedChapter,
+  chapterT: number,
   timeSec: number,
 ): void {
   const { width, height, boardRect, panelRect, isVertical } = layout;
-  const ch = STORYBOARD_CHAPTERS[2]!;
 
-  drawSplitDualityBackground(ctx, width, height, 0.25, timeSec, 0.78);
-  drawChapterHeader(ctx, layout, ch.label, ch.headline, ch.caption, progress(localFrame, 0, 24));
+  drawSplitDualityBackground(ctx, width, height, isVertical ? 0.16 : 0.24, timeSec, 0.78);
+  drawChapterHeader(ctx, layout, chapter.label, chapter.headline, chapter.caption, chapterT);
 
-  // Pawn moves from (5, 6) -> (5, 4) adjacent to masked enemy at (5, 3)
-  const moveT = easeInOutQuart(progress(localFrame, 12, durationFrames * 0.3));
+  const moveT = easeInOutQuart(segmentProgress(chapterT, 0.08, 0.3));
   const pawnCol = 5;
   const pawnRow = lerp(6, 4, moveT);
 
-  const scanT = progress(localFrame, durationFrames * 0.36, durationFrames * 0.32);
-  const maskLift = easeOutCubic(progress(localFrame, durationFrames * 0.44, durationFrames * 0.24));
+  const scanT = segmentProgress(chapterT, 0.38, 0.3);
+  const maskLift = easeOutCubic(segmentProgress(chapterT, 0.45, 0.22));
 
-  // Highlight adjacent squares around Pawn once arrived
   const highlights: TileHighlight[] = [];
   if (moveT > 0.88) {
     const hlAlpha = clamp((moveT - 0.88) / 0.12, 0, 1) * 0.28;
@@ -471,7 +460,6 @@ function renderPawnScoutChapter(
 
   drawBoard9x9(ctx, boardRect, { highlights, showGridBadge: false });
 
-  // Supporting pieces on board
   const staticPieces: ReadonlyArray<{
     type: PieceType;
     faction: PieceFaction;
@@ -495,7 +483,6 @@ function renderPawnScoutChapter(
     });
   }
 
-  // Target disguised Queen at (5, 3)
   const targetPos = boardSquareCenter(boardRect, 5, 3);
   drawChessPiece(ctx, targetPos.cx, targetPos.cy, targetPos.cellSize, 'queen', 'dark', {
     masked: true,
@@ -504,7 +491,6 @@ function renderPawnScoutChapter(
     timeSec,
   });
 
-  // Moving Light Scouting Pawn
   const pawnPos = boardSquareCenter(boardRect, pawnCol, pawnRow);
   drawChessPiece(ctx, pawnPos.cx, pawnPos.cy, pawnPos.cellSize, 'pawn', 'light', {
     glowColor: BLIND_WAR_THEME.goldBright,
@@ -516,7 +502,6 @@ function renderPawnScoutChapter(
     drawAdjacencyScannerPulse(ctx, boardRect, 5, 4, 5, 3, scanT);
   }
 
-  // Tactical Rule Panel
   drawTacticalPanelFrame(ctx, panelRect, BLIND_WAR_THEME.cyanRune, 1);
 
   const px = panelRect.x;
@@ -524,33 +509,30 @@ function renderPawnScoutChapter(
   const pw = panelRect.w;
   const ph = panelRect.h;
 
-  drawTextWithShadow(ctx, 'THE "COLLAGE" SCOUT MECHANIC', px + pw / 2, py + 54, {
-    font: `700 ${isVertical ? 26 : 28}px ${FONT_DISPLAY}`,
+  drawTextWithShadow(ctx, 'MÉCANIQUE DU PION COLLÉ', px + pw / 2, py + 48, {
+    font: `700 ${isVertical ? 25 : 27}px ${FONT_DISPLAY}`,
     color: BLIND_WAR_THEME.goldBright,
     maxWidth: pw - 64,
   });
 
-  // Visual equation: [Light Pawn] + [Adjacent Link] -> [Revealed Queen]
-  const diagY = py + (isVertical ? 220 : 250);
+  const diagY = py + (isVertical ? 198 : 240);
   const leftX = px + pw * 0.23;
   const midX = px + pw * 0.5;
   const rightX = px + pw * 0.77;
 
-  // Left box: Pawn Scout
-  traceRoundedRect(ctx, leftX - 95, diagY - 82, 190, 175, 18);
+  traceRoundedRect(ctx, leftX - 95, diagY - 76, 190, 162, 18);
   ctx.fillStyle = 'rgba(248, 216, 120, 0.1)';
   ctx.fill();
   ctx.strokeStyle = BLIND_WAR_THEME.goldBright;
   ctx.lineWidth = 2;
   ctx.stroke();
-  drawChessPiece(ctx, leftX, diagY - 12, 92, 'pawn', 'light', { timeSec });
-  drawTextWithShadow(ctx, 'YOUR PAWN', leftX, diagY + 66, {
+  drawChessPiece(ctx, leftX, diagY - 12, 86, 'pawn', 'light', { timeSec });
+  drawTextWithShadow(ctx, 'VOTRE PION', leftX, diagY + 60, {
     font: `700 15px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.goldBright,
   });
 
-  // Center arrow + "ADJACENT"
-  drawTextWithShadow(ctx, 'ADJACENT', midX, diagY - 26, {
+  drawTextWithShadow(ctx, 'AU CONTACT', midX, diagY - 26, {
     font: `700 15px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.cyanRune,
   });
@@ -566,49 +548,42 @@ function renderPawnScoutChapter(
   ctx.stroke();
   ctx.restore();
 
-  // Right box: Target Unmasked!
-  traceRoundedRect(ctx, rightX - 95, diagY - 82, 190, 175, 18);
+  traceRoundedRect(ctx, rightX - 95, diagY - 76, 190, 162, 18);
   ctx.fillStyle = maskLift > 0.5 ? 'rgba(52, 211, 153, 0.14)' : 'rgba(168, 85, 247, 0.12)';
   ctx.fill();
   ctx.strokeStyle =
     maskLift > 0.5 ? BLIND_WAR_THEME.emeraldReveal : BLIND_WAR_THEME.violetGlow;
   ctx.lineWidth = 2;
   ctx.stroke();
-  drawChessPiece(ctx, rightX, diagY - 12, 92, 'queen', 'dark', {
+  drawChessPiece(ctx, rightX, diagY - 12, 86, 'queen', 'dark', {
     masked: true,
     maskLift,
     timeSec,
   });
   drawTextWithShadow(
     ctx,
-    maskLift > 0.5 ? 'TRUE QUEEN!' : 'DISGUISED FOE',
+    maskLift > 0.5 ? 'VRAIE REINE !' : 'CIBLE MASQUÉE',
     rightX,
-    diagY + 66,
+    diagY + 60,
     {
       font: `700 15px ${FONT_MONO}`,
       color: maskLift > 0.5 ? BLIND_WAR_THEME.emeraldReveal : BLIND_WAR_THEME.violetGlow,
     },
   );
 
-  const footY = py + ph - (isVertical ? 145 : 175);
+  const footY = py + ph - (isVertical ? 126 : 165);
+  drawTextWithShadow(ctx, 'LES PIONS SONT VOS ÉCLAIREURS', px + pw / 2, footY, {
+    font: `700 ${isVertical ? 23 : 24}px ${FONT_SANS}`,
+    color: BLIND_WAR_THEME.textLight,
+    maxWidth: pw - 72,
+  });
   drawTextWithShadow(
     ctx,
-    'PAWNS ARE YOUR EYES ON THE BOARD',
+    'La pièce ennemie reste révélée tant que votre pion reste adjacent.',
     px + pw / 2,
-    footY,
+    footY + 42,
     {
-      font: `700 ${isVertical ? 24 : 25}px ${FONT_SANS}`,
-      color: BLIND_WAR_THEME.textLight,
-      maxWidth: pw - 72,
-    },
-  );
-  drawTextWithShadow(
-    ctx,
-    'The enemy piece stays revealed as long as your Pawn remains adjacent.',
-    px + pw / 2,
-    footY + 46,
-    {
-      font: `500 ${isVertical ? 20 : 21}px ${FONT_SANS}`,
+      font: `500 ${isVertical ? 19 : 20}px ${FONT_SANS}`,
       color: BLIND_WAR_THEME.textSoft,
       maxWidth: pw - 72,
     },
@@ -618,26 +593,22 @@ function renderPawnScoutChapter(
 function renderCardsAndEliteChapter(
   ctx: RenderContext2D,
   layout: LayoutZones,
-  localFrame: number,
-  durationFrames: number,
+  chapter: ResolvedChapter,
+  chapterT: number,
   timeSec: number,
 ): void {
   const { width, height, boardRect, panelRect, isVertical } = layout;
-  const ch = STORYBOARD_CHAPTERS[3]!;
 
-  drawSplitDualityBackground(ctx, width, height, 0.2, timeSec, 0.65);
-  drawChapterHeader(ctx, layout, ch.label, ch.headline, ch.caption, progress(localFrame, 0, 22));
+  drawSplitDualityBackground(ctx, width, height, isVertical ? 0.15 : 0.2, timeSec, 0.65);
+  drawChapterHeader(ctx, layout, chapter.label, chapter.headline, chapter.caption, chapterT);
 
-  // Beat A (0..0.52): Power Card flip + swap on board + cooldown ring
-  // Beat B (0.48..1.0): Royal-Only Elite shield + King/Queen capture vs Pawn blocked
-  const swapT = easeInOutQuart(progress(localFrame, 28, 40));
-  const flipT = easeOutCubic(progress(localFrame, 8, 28));
-  const cooldownSweep = 1 - progress(localFrame, 34, 70) * 0.45;
-  const eliteFocusT = easeOutCubic(progress(localFrame, durationFrames * 0.48, 24));
-  const blockT = progress(localFrame, durationFrames * 0.56, 36);
-  const royalCaptureT = progress(localFrame, durationFrames * 0.72, 42);
+  const swapT = easeInOutQuart(segmentProgress(chapterT, 0.14, 0.22));
+  const flipT = easeOutCubic(segmentProgress(chapterT, 0.04, 0.16));
+  const cooldownSweep = 1 - segmentProgress(chapterT, 0.18, 0.42) * 0.45;
+  const eliteFocusT = easeOutCubic(segmentProgress(chapterT, 0.48, 0.14));
+  const blockT = segmentProgress(chapterT, 0.56, 0.2);
+  const royalCaptureT = segmentProgress(chapterT, 0.72, 0.22);
 
-  // Board highlights
   const highlights: TileHighlight[] = [];
   if (swapT > 0.05 && swapT < 0.98) {
     highlights.push({ col: 2, row: 6, color: BLIND_WAR_THEME.cyanRune, alpha: 0.4 });
@@ -654,7 +625,6 @@ function renderCardsAndEliteChapter(
 
   drawBoard9x9(ctx, boardRect, { highlights });
 
-  // Power card swap arc between (2,6) and (6,6)
   const swapColA = lerp(2, 6, swapT);
   const swapColB = lerp(6, 2, swapT);
   const swapArcY = Math.sin(swapT * Math.PI) * -0.55;
@@ -671,14 +641,12 @@ function renderCardsAndEliteChapter(
     timeSec,
   });
 
-  // Light King at (4,5) & Light Pawn at (3,4)
   const kingPos = boardSquareCenter(boardRect, 4, 5);
   drawChessPiece(ctx, kingPos.cx, kingPos.cy, kingPos.cellSize, 'king', 'light', { timeSec });
 
   const pawnPos = boardSquareCenter(boardRect, 3, 4);
   drawChessPiece(ctx, pawnPos.cx, pawnPos.cy, pawnPos.cellSize, 'pawn', 'light', { timeSec });
 
-  // Enemy pieces + Royal-Only Elite at (4, 3)
   const darkKing = boardSquareCenter(boardRect, 4, 0);
   drawChessPiece(ctx, darkKing.cx, darkKing.cy, darkKing.cellSize, 'king', 'dark', { timeSec });
 
@@ -690,7 +658,6 @@ function renderCardsAndEliteChapter(
     timeSec,
   });
 
-  // Pawn attack blocked by Elite Royal Barrier
   if (blockT > 0.05) {
     ctx.save();
     ctx.strokeStyle = BLIND_WAR_THEME.royalCrimson;
@@ -702,7 +669,6 @@ function renderCardsAndEliteChapter(
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Crimson X badge
     const bx = lerp(pawnPos.cx, elitePos.cx, 0.65);
     const by = lerp(pawnPos.cy, elitePos.cy, 0.65);
     ctx.fillStyle = BLIND_WAR_THEME.royalCrimson;
@@ -716,7 +682,6 @@ function renderCardsAndEliteChapter(
     ctx.restore();
   }
 
-  // King / Queen Royal Capture Allowed arc
   if (royalCaptureT > 0.05) {
     ctx.save();
     ctx.strokeStyle = BLIND_WAR_THEME.emeraldReveal;
@@ -733,7 +698,6 @@ function renderCardsAndEliteChapter(
     ctx.restore();
   }
 
-  // Tactical Panel: Power Card (left/top) + Royal Elite Rule (right/bottom)
   drawTacticalPanelFrame(ctx, panelRect, BLIND_WAR_THEME.royalGold, 1);
 
   const px = panelRect.x;
@@ -741,88 +705,84 @@ function renderCardsAndEliteChapter(
   const pw = panelRect.w;
   const ph = panelRect.h;
 
-  // Divide panel into 2 clean columns (both 16:9 and 9:16 have wide panelRect >= 880px!)
   const leftCenterX = px + pw * 0.27;
   const rightCenterX = px + pw * 0.72;
-  const cardCy = py + ph * 0.48;
+  const cardCy = py + ph * 0.49;
 
-  drawTextWithShadow(ctx, '1. POWER CARDS', leftCenterX, py + 44, {
-    font: `700 18px ${FONT_MONO}`,
+  drawTextWithShadow(ctx, '1. CARTES DE POUVOIRS', leftCenterX, py + 38, {
+    font: `700 17px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.cyanRune,
   });
 
   drawPowerCard(ctx, {
     cx: leftCenterX,
     cy: cardCy,
-    width: isVertical ? 260 : 250,
-    height: isVertical ? 340 : 350,
+    width: isVertical ? 245 : 245,
+    height: isVertical ? 310 : 340,
     flipT,
     cooldownProgress: cooldownSweep,
     cooldownTurns: 3,
-    title: 'MIRAGE SWAP',
-    subtitle: 'Swap 2 allies & reverse',
+    title: 'ÉCHANGE MIRAGE',
+    subtitle: 'Permute 2 alliés',
   });
 
-  drawTextWithShadow(ctx, 'Powered by cooldown timers', leftCenterX, py + ph - 44, {
-    font: `600 17px ${FONT_SANS}`,
+  drawTextWithShadow(ctx, 'Temps de recharge actif', leftCenterX, py + ph - 36, {
+    font: `600 16px ${FONT_SANS}`,
     color: BLIND_WAR_THEME.textSoft,
     maxWidth: pw * 0.44,
   });
 
-  // Vertical divider inside panel
   ctx.save();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(px + pw * 0.51, py + 40);
-  ctx.lineTo(px + pw * 0.51, py + ph - 40);
+  ctx.moveTo(px + pw * 0.51, py + 36);
+  ctx.lineTo(px + pw * 0.51, py + ph - 36);
   ctx.stroke();
   ctx.restore();
 
-  // Right side: Royal-Only Elite Rule Box
-  drawTextWithShadow(ctx, '2. ROYAL-ONLY ELITE', rightCenterX, py + 44, {
-    font: `700 18px ${FONT_MONO}`,
+  drawTextWithShadow(ctx, '2. PIÈCE ÉLITE ROYALE', rightCenterX, py + 38, {
+    font: `700 17px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.royalGold,
   });
 
-  drawChessPiece(ctx, rightCenterX, py + ph * 0.28, 128, 'elite', 'dark', {
+  drawChessPiece(ctx, rightCenterX, py + ph * 0.27, isVertical ? 114 : 124, 'elite', 'dark', {
     royalShield: true,
     glowColor: BLIND_WAR_THEME.royalGold,
     timeSec,
   });
 
-  drawTextWithShadow(ctx, 'ROYAL BARRIER', rightCenterX, py + ph * 0.47, {
-    font: `700 22px ${FONT_DISPLAY}`,
+  drawTextWithShadow(ctx, 'BARRIÈRE ROYALE', rightCenterX, py + ph * 0.46, {
+    font: `700 21px ${FONT_DISPLAY}`,
     color: BLIND_WAR_THEME.royalGold,
   });
 
-  // Allowed vs Blocked rows
   const allowY = py + ph * 0.62;
-  traceRoundedRect(ctx, rightCenterX - 170, allowY - 34, 340, 68, 14);
+  traceRoundedRect(ctx, rightCenterX - 170, allowY - 32, 340, 64, 14);
   ctx.fillStyle = 'rgba(52, 211, 153, 0.14)';
   ctx.fill();
   ctx.strokeStyle = BLIND_WAR_THEME.emeraldReveal;
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawChessPiece(ctx, rightCenterX - 122, allowY, 44, 'king', 'light', { timeSec });
-  drawChessPiece(ctx, rightCenterX - 72, allowY, 44, 'queen', 'light', { timeSec });
-  drawTextWithShadow(ctx, '✓  KING OR QUEEN ONLY', rightCenterX + 44, allowY + 1, {
-    font: `700 15px ${FONT_MONO}`,
+  drawChessPiece(ctx, rightCenterX - 122, allowY, 42, 'king', 'light', { timeSec });
+  drawChessPiece(ctx, rightCenterX - 72, allowY, 42, 'queen', 'light', { timeSec });
+  drawTextWithShadow(ctx, '✓  ROI OU REINE SEULS', rightCenterX + 44, allowY + 1, {
+    font: `700 14px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.emeraldReveal,
     maxWidth: 195,
   });
 
-  const denyY = py + ph * 0.79;
-  traceRoundedRect(ctx, rightCenterX - 170, denyY - 30, 340, 60, 14);
+  const denyY = py + ph * 0.8;
+  traceRoundedRect(ctx, rightCenterX - 170, denyY - 28, 340, 56, 14);
   ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
   ctx.fill();
   ctx.strokeStyle = BLIND_WAR_THEME.royalCrimson;
   ctx.lineWidth = 1.6;
   ctx.stroke();
 
-  drawTextWithShadow(ctx, '✕  ALL OTHER UNITS BLOCKED', rightCenterX, denyY + 1, {
-    font: `700 15px ${FONT_MONO}`,
+  drawTextWithShadow(ctx, '✕  AUTRES PIÈCES BLOQUÉES', rightCenterX, denyY + 1, {
+    font: `700 14px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.royalCrimson,
     maxWidth: 310,
   });
@@ -831,47 +791,45 @@ function renderCardsAndEliteChapter(
 function renderRecapChapter(
   ctx: RenderContext2D,
   layout: LayoutZones,
-  localFrame: number,
+  chapter: ResolvedChapter,
+  chapterT: number,
   timeSec: number,
 ): void {
   const { width, height, isVertical } = layout;
-  const ch = STORYBOARD_CHAPTERS[4]!;
-  const splitRatio = lerp(0.2, 0.5, easeInOutQuart(progress(localFrame, 0, 35)));
+  const splitRatio = lerp(0.2, 0.5, easeInOutQuart(segmentProgress(chapterT, 0, 0.28)));
 
   drawSplitDualityBackground(ctx, width, height, splitRatio, timeSec, 0.95);
 
-  // Emblem on top/left
-  const emblemT = easeOutBack(progress(localFrame, 4, 28));
+  const emblemT = easeOutBack(segmentProgress(chapterT, 0.03, 0.24));
   const emblemX = isVertical ? width / 2 : width * 0.28;
-  const emblemY = isVertical ? height * 0.21 : height * 0.44;
+  const emblemY = isVertical ? height * 0.19 : height * 0.42;
   drawWingedMasqueradeEmblem(
     ctx,
     emblemX,
     emblemY,
-    (isVertical ? 1.05 : 1.25) * Math.max(0.01, emblemT),
+    (isVertical ? 1.0 : 1.22) * Math.max(0.01, emblemT),
     0.08,
     timeSec,
   );
 
-  // Title plaque below/right of emblem
   const textX = isVertical ? width / 2 : width * 0.67;
-  const topY = isVertical ? height * 0.37 : 155;
+  const topY = isVertical ? height * 0.34 : 138;
   const hdrPlaqueW = isVertical ? 840 : 760;
-  const hdrPlaqueH = 104;
+  const hdrPlaqueH = 98;
 
-  traceRoundedRect(ctx, textX - hdrPlaqueW / 2, topY - 62, hdrPlaqueW, hdrPlaqueH, 20);
-  ctx.fillStyle = 'rgba(10, 8, 22, 0.84)';
+  traceRoundedRect(ctx, textX - hdrPlaqueW / 2, topY - 58, hdrPlaqueW, hdrPlaqueH, 20);
+  ctx.fillStyle = 'rgba(10, 8, 22, 0.85)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(212, 160, 57, 0.45)';
   ctx.lineWidth = 1.6;
   ctx.stroke();
 
-  drawTextWithShadow(ctx, 'MHLGAMES PRESENTS', textX, topY - 36, {
+  drawTextWithShadow(ctx, 'MHLGAMES PRÉSENTE', textX, topY - 34, {
     font: `700 16px ${FONT_MONO}`,
     color: BLIND_WAR_THEME.goldBright,
   });
-  drawTextWithShadow(ctx, ch.headline, textX, topY + 10, {
-    font: `700 ${isVertical ? 52 : 50}px ${FONT_DISPLAY}`,
+  drawTextWithShadow(ctx, chapter.headline, textX, topY + 10, {
+    font: `700 ${isVertical ? 50 : 48}px ${FONT_DISPLAY}`,
     color: BLIND_WAR_THEME.textLight,
     shadowColor: 'rgba(124, 58, 237, 0.8)',
     shadowBlur: 20,
@@ -879,21 +837,21 @@ function renderRecapChapter(
   });
 
   const badges = [
-    { title: '9×9 TACTICAL GRID', sub: 'Expanded arena with classic chess roots', color: BLIND_WAR_THEME.goldBright },
-    { title: 'HIDDEN IDENTITIES', sub: 'Opponents disguised as masked Pawns', color: BLIND_WAR_THEME.violetGlow },
-    { title: 'ADJACENT PAWN REVEAL', sub: 'Move a Pawn adjacent to unmask foes', color: BLIND_WAR_THEME.cyanRune },
-    { title: 'POWER CARDS & COOLDOWNS', sub: 'Arcane abilities to turn the tide', color: BLIND_WAR_THEME.magentaAccent },
-    { title: 'ROYAL-ONLY ELITE', sub: 'Only King or Queen can eliminate', color: BLIND_WAR_THEME.royalGold },
+    { title: 'ÉCHIQUIER 9×9', sub: 'Terrain élargi entre marbre et cosmos', color: BLIND_WAR_THEME.goldBright },
+    { title: 'PIÈCES MASQUÉES', sub: 'Bluff et mémoire sous cape d’illusion', color: BLIND_WAR_THEME.violetGlow },
+    { title: 'RÉVÉLATION PAR PION COLLÉ', sub: 'Placez un pion adjacent pour démasquer', color: BLIND_WAR_THEME.cyanRune },
+    { title: 'CARTES DE POUVOIRS', sub: 'Capacités à temps de recharge tactique', color: BLIND_WAR_THEME.magentaAccent },
+    { title: 'ÉLITE ROYALE', sub: 'Éliminable uniquement par Roi ou Reine', color: BLIND_WAR_THEME.royalGold },
   ] as const;
 
   const cardW = isVertical ? 840 : 760;
-  const cardH = isVertical ? 96 : 82;
-  const gap = isVertical ? 20 : 16;
-  const listStartY = topY + (isVertical ? 76 : 74);
+  const cardH = isVertical ? 88 : 76;
+  const gap = isVertical ? 16 : 14;
+  const listStartY = topY + (isVertical ? 66 : 64);
 
   for (let i = 0; i < badges.length; i++) {
     const item = badges[i]!;
-    const itemT = easeOutCubic(progress(localFrame, 10 + i * 9, 22));
+    const itemT = easeOutCubic(segmentProgress(chapterT, 0.08 + i * 0.07, 0.18));
     const slideX = (1 - itemT) * 40;
     const bx = textX - cardW / 2 + slideX;
     const by = listStartY + i * (cardH + gap);
@@ -907,47 +865,45 @@ function renderRecapChapter(
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Index badge
     ctx.fillStyle = item.color;
     ctx.beginPath();
-    ctx.arc(bx + 36, by + cardH / 2, 16, 0, Math.PI * 2);
+    ctx.arc(bx + 34, by + cardH / 2, 15, 0, Math.PI * 2);
     ctx.fill();
-    drawTextWithShadow(ctx, String(i + 1), bx + 36, by + cardH / 2 + 1, {
+    drawTextWithShadow(ctx, String(i + 1), bx + 34, by + cardH / 2 + 1, {
       font: `700 15px ${FONT_MONO}`,
       color: '#090714',
     });
 
-    drawTextWithShadow(ctx, item.title, bx + 72, by + cardH * 0.36, {
-      font: `700 ${isVertical ? 22 : 20}px ${FONT_MONO}`,
+    drawTextWithShadow(ctx, item.title, bx + 68, by + cardH * 0.36, {
+      font: `700 ${isVertical ? 20 : 19}px ${FONT_MONO}`,
       color: item.color,
       align: 'left',
-      maxWidth: cardW - 96,
+      maxWidth: cardW - 92,
     });
-    drawTextWithShadow(ctx, item.sub, bx + 72, by + cardH * 0.7, {
-      font: `500 ${isVertical ? 19 : 18}px ${FONT_SANS}`,
+    drawTextWithShadow(ctx, item.sub, bx + 68, by + cardH * 0.7, {
+      font: `500 ${isVertical ? 18 : 17}px ${FONT_SANS}`,
       color: BLIND_WAR_THEME.textSoft,
       align: 'left',
-      maxWidth: cardW - 96,
+      maxWidth: cardW - 92,
     });
     ctx.restore();
   }
 
-  // Call-to-Play footer banner
-  const ctaY = listStartY + badges.length * (cardH + gap) + (isVertical ? 46 : 36);
-  const ctaT = easeOutCubic(progress(localFrame, 58, 24));
+  const ctaY = listStartY + badges.length * (cardH + gap) + (isVertical ? 34 : 26);
+  const ctaT = easeOutCubic(segmentProgress(chapterT, 0.45, 0.2));
   ctx.save();
   ctx.globalAlpha = ctaT;
   const ctaW = isVertical ? 760 : 660;
-  const ctaH = 62;
-  traceRoundedRect(ctx, textX - ctaW / 2, ctaY, ctaW, ctaH, 31);
+  const ctaH = 56;
+  traceRoundedRect(ctx, textX - ctaW / 2, ctaY, ctaW, ctaH, 28);
   const ctaGrad = ctx.createLinearGradient(textX - ctaW / 2, 0, textX + ctaW / 2, 0);
   ctaGrad.addColorStop(0, BLIND_WAR_THEME.goldRich);
   ctaGrad.addColorStop(0.5, BLIND_WAR_THEME.nebulaViolet);
   ctaGrad.addColorStop(1, BLIND_WAR_THEME.cyanRune);
   ctx.fillStyle = ctaGrad;
   ctx.fill();
-  drawTextWithShadow(ctx, 'PLAY BLIND WAR  ·  OUTSMART THE MASK', textX, ctaY + ctaH / 2 + 1, {
-    font: `700 ${isVertical ? 22 : 20}px ${FONT_MONO}`,
+  drawTextWithShadow(ctx, 'JOUER À BLIND WAR  ·  PERCEZ LE MASQUE', textX, ctaY + ctaH / 2 + 1, {
+    font: `700 ${isVertical ? 20 : 19}px ${FONT_MONO}`,
     color: '#FFFFFF',
     maxWidth: ctaW - 40,
   });
@@ -955,70 +911,61 @@ function renderRecapChapter(
 }
 
 /**
- * Pure deterministic frame renderer for BLIND WAR How-to-Play explainer video.
+ * Pure deterministic frame renderer for BLIND WAR voiced & subtitled explainer video.
  * Supports 16:9 (1920x1080) and 9:16 (1080x1920) cleanly.
  */
 export function renderFrame(
   ctx: RenderContext2D,
   frameIndex: number,
-  totalFrames: number,
+  timeline: MasterTimeline,
   aspectRatio: AspectMode,
+  options: RenderOptions = {},
 ): void {
   const layout = computeLayout(aspectRatio);
-  const clampedTotal = Math.max(1, totalFrames);
-  const clampedFrame = clamp(frameIndex, 0, clampedTotal - 1e-6);
-  const normalizedFrame = (clampedFrame / clampedTotal) * 720;
-
-  const active = getChapterAtFrame(normalizedFrame);
-  const timeSec = normalizedFrame / VIDEO_FPS;
+  const clampedFrame = clamp(frameIndex, 0, Math.max(0.0001, timeline.totalFrames - 1e-6));
+  const active = getChapterAtFrame(clampedFrame, timeline);
+  const timeSec = clampedFrame / timeline.fps;
 
   ctx.save();
   ctx.clearRect(0, 0, layout.width, layout.height);
 
   switch (active.chapter.id) {
     case 'hook':
-      renderHookChapter(ctx, layout, active.localFrame, active.chapter.durationFrames, timeSec);
+      renderHookChapter(ctx, layout, active.localProgress, timeSec);
       break;
     case 'board-fog':
-      renderBoardAndFogChapter(
-        ctx,
-        layout,
-        active.localFrame,
-        active.chapter.durationFrames,
-        timeSec,
-      );
+      renderBoardAndFogChapter(ctx, layout, active.chapter, active.localProgress, timeSec);
       break;
     case 'pawn-scout':
-      renderPawnScoutChapter(
-        ctx,
-        layout,
-        active.localFrame,
-        active.chapter.durationFrames,
-        timeSec,
-      );
+      renderPawnScoutChapter(ctx, layout, active.chapter, active.localProgress, timeSec);
       break;
     case 'cards-elite':
-      renderCardsAndEliteChapter(
-        ctx,
-        layout,
-        active.localFrame,
-        active.chapter.durationFrames,
-        timeSec,
-      );
+      renderCardsAndEliteChapter(ctx, layout, active.chapter, active.localProgress, timeSec);
       break;
     case 'recap':
-      renderRecapChapter(ctx, layout, active.localFrame, timeSec);
+      renderRecapChapter(ctx, layout, active.chapter, active.localProgress, timeSec);
       break;
   }
+
+  // Synchronized burned-in dynamic subtitles (safe-zone positioned for 16:9 and 9:16)
+  const activeCue = getActiveSubtitleCue(timeline, timeSec);
+  drawSubtitleOverlay(
+    ctx,
+    layout.width,
+    layout.height,
+    activeCue,
+    layout.isVertical,
+    options.showSubtitles ?? true,
+  );
 
   // Bottom deterministic chapter progress HUD
   drawChapterProgressBar(
     ctx,
     layout.width,
     layout.height,
-    STORYBOARD_CHAPTERS,
-    normalizedFrame,
-    720,
+    timeline.chapters,
+    clampedFrame,
+    timeline.totalFrames,
     layout.isVertical,
   );
 

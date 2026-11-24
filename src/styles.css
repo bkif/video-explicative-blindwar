@@ -353,6 +353,22 @@ body {
   gap: 0.45rem;
 }
 
+.bw-volume-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.bw-volume-slider {
+  width: 84px;
+  accent-color: var(--bw-gold);
+  cursor: pointer;
+}
+
+.bw-volume-slider:focus-visible {
+  outline: 2px solid var(--bw-cyan);
+  outline-offset: 2px;
+}
+
 @media (max-width: 680px) {
   .bw-chapters-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));

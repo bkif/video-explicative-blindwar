@@ -3,24 +3,24 @@ import { HowToPlayModal } from './components/HowToPlayModal';
 
 const CORE_PILLARS = [
   {
-    title: '01 · 9×9 TACTICAL GRID',
-    body: 'Battle across an expanded 9×9 board uniting classical chess geometry with arcane tactics.',
+    title: '01 · ÉCHIQUIER 9×9',
+    body: 'Affrontez-vous sur un plateau élargi 9×9 mêlant géométrie classique et magie cosmique.',
   },
   {
-    title: '02 · FOG OF DECEPTION',
-    body: 'From your opponent’s perspective, enemy pieces appear as masked Pawns—track threats by memory.',
+    title: '02 · PIÈCES MASQUÉES',
+    body: "Aux yeux de l'adversaire, vos pièces paraissent être de simples pions : une Reine peut s'y cacher.",
   },
   {
-    title: '03 · ADJACENT PAWN REVEAL',
-    body: 'Move any Pawn next to a disguised foe to lift its masquerade mask for as long as it stays adjacent.',
+    title: '03 · RÉVÉLATION PAR PION COLLÉ',
+    body: 'Collez un pion à une pièce ennemie pour lever son masque tant qu’il reste au contact.',
   },
   {
-    title: '04 · POWER CARDS & COOLDOWNS',
-    body: 'Unleash tactical power cards governed by turn cooldowns to flip board momentum.',
+    title: '04 · POUVOIRS & COOLDOWNS',
+    body: 'Activez des cartes de pouvoirs à temps de recharge pour renverser le cours du duel.',
   },
   {
-    title: '05 · ROYAL-ONLY ELITE',
-    body: 'Protected by a Royal Barrier—only your King or Queen can eliminate the Elite piece.',
+    title: '05 · PIÈCE ÉLITE ROYALE',
+    body: 'Protégée par une barrière royale : seul le Roi ou la Reine peut éliminer la pièce Élite.',
   },
 ] as const;
 
@@ -41,19 +41,19 @@ export function App() {
           type="button"
           className="bw-btn bw-btn-subtle"
           onClick={() => setModalOpen(true)}
-          aria-label="Open How to Play interactive explainer"
+          aria-label="Ouvrir le tutoriel vidéo Comment jouer / How to Play"
         >
-          How to Play
+          Comment jouer / How to Play
         </button>
       </header>
 
       <main className="bw-main">
         <section className="bw-hero">
-          <span className="bw-pill">TACTICAL CHESS VARIANT · AGES 10–50</span>
+          <span className="bw-pill">VARIANTE D’ÉCHECS TACTIQUE · 10–50 ANS</span>
           <h1>BLIND WAR</h1>
           <p>
-            Step into the masquerade between celestial marble and cosmic obsidian. Outsmart your
-            rival through strategy, memory, bluffing, and cooldown-driven powers.
+            Entrez dans la mascarade entre marbre céleste et obsidienne cosmique. Dominez par la
+            stratégie, la mémoire, le bluff et vos cartes de pouvoirs.
           </p>
 
           <div className="bw-actions">
@@ -62,12 +62,12 @@ export function App() {
               className="bw-btn bw-btn-primary"
               onClick={() => setModalOpen(true)}
             >
-              Watch Interactive How to Play
+              Voir la vidéo explicative (FR · Audio &amp; Sous-titres)
             </button>
           </div>
         </section>
 
-        <section className="bw-rules-grid" aria-label="Core BLIND WAR rules">
+        <section className="bw-rules-grid" aria-label="Règles principales de BLIND WAR">
           {CORE_PILLARS.map((pillar) => (
             <article key={pillar.title} className="bw-rule-card">
               <h2>{pillar.title}</h2>
@@ -78,7 +78,7 @@ export function App() {
       </main>
 
       <footer className="bw-footer">
-        BLIND WAR by MHLGames · Programmatic Deterministic Explainer Pipeline (16:9 &amp; 9:16)
+        BLIND WAR par MHLGames · Pipeline vidéo programmatique avec voix FR, SFX &amp; sous-titres (16:9 &amp; 9:16)
       </footer>
 
       <HowToPlayModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />

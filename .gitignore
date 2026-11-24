@@ -4,4 +4,8 @@ dist
 *.log
 *.tsbuildinfo
 /public/*.mp4
+/public/*.mp3
+/public/*.wav
+/public/*.srt
+/public/*.json
 !public/.gitkeep
