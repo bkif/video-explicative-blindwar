@@ -19,5 +19,5 @@
     "noUncheckedIndexedAccess": true
   },
   "include": ["src", "explainer-video"],
-  "exclude": ["explainer-video/export-video.ts", "explainer-video/renderer.test.ts"]
+  "exclude": ["explainer-video/audio.ts", "explainer-video/export-video.ts", "explainer-video/renderer.test.ts"]
 }

@@ -1,19 +1,15 @@
-# BLIND WAR — Programmatic Explainer Video & Interactive Player
+# BLIND WAR — Voiced & Subtitled Programmatic Explainer Pipeline
 
-Deterministic, 100% procedural Canvas 2D + FFmpeg explainer video pipeline and 60fps interactive player for **BLIND WAR** by **MHLGames**.
+Deterministic Canvas 2D + French neural TTS + procedural SFX/music + FFmpeg explainer video pipeline and audio-synced 60fps interactive player for **BLIND WAR** by **MHLGames**.
 
-## Core Features
-- **Split Duality Aesthetic:** Celestial white marble & gold clockwork vs. cosmic obsidian, electric violet/cyan nebula, constellations, and the winged masquerade crown emblem.
-- **5-Chapter Storyboard (24s @ 30fps / 60fps UI):**
-  1. Hook & Duality (`0–4s`)
-  2. 9×9 Board & Hidden Piece Identities (`4–9s`)
-  3. Adjacent Pawn Scouting Reveal (`9–14s`)
-  4. Power Cards, Cooldowns & Royal-Only Elite (`14–20s`)
-  5. Recap & Call-to-Play (`20–24s`)
-- **Multi-Aspect Export:** Renders both `16:9` (`1920x1080`) web trailer and `9:16` (`1080x1920`) TikTok/vertical MP4s from the exact same deterministic `renderFrame` engine.
+## Architecture
+- **Visual Engine:** Split celestial marble/gold vs. cosmic obsidian/violet/cyan aesthetic with winged masquerade crown emblem, `9×9` board, Fog of Deception mask toggling, Adjacent Pawn Reveal scanner, holographic Power Card flip + cooldown ring, and Royal-Only Elite shield.
+- **French Voiceover (`explainer-video/audio.ts`):** Synthesizes per-chapter French narration (`edge-tts` `fr-FR-HenriNeural` with automatic fallback to `espeak-ng` or timed silent pacing), measures exact spoken durations with `ffprobe`, and adapts chapter lengths dynamically (`+0.55s` buffer).
+- **Procedural Audio & Voice-Ducking:** Synthesizes dual-world ambient music + synced chess/rune/card/shield SFX directly in stereo 16-bit PCM WAV with smooth cosine voice-ducking during narration.
+- **Subtitles (`explainer-video/subtitles.ts`):** Renders burned-in high-contrast dynamic subtitles in safe zones (`16:9` and `9:16` TikTok) and exports `public/blind-war-how-to-play.srt` (embedded as `mov_text`).
 
 ## Commands
-- `npm run dev` — Launch interactive 60fps web player with the **How to Play** modal
-- `npm run render:tutorial-video` — Export `public/blind-war-how-to-play.mp4` (`16:9`)
-- `npm run render:tutorial-video:vertical` — Export `public/blind-war-tiktok.mp4` (`9:16`)
-- `npm run typecheck && npm run lint && npm test && npm run build` — Verify types, lint, tests, and production bundle
+- `npm run dev` — Launch the interactive audio-synced 60fps player (**Comment jouer / How to Play**)
+- `npm run render:tutorial-video` — Export `public/blind-war-how-to-play.mp4` (`16:9`, H.264 + AAC + `mov_text`), `.srt`, and browser `.mp3`
+- `npm run render:tutorial-video:vertical` — Export `public/blind-war-tiktok.mp4` (`9:16`, H.264 + AAC + `mov_text`)
+- `npm run typecheck && npm run lint && npm test && npm run build` — Verify TypeScript, ESLint, Vitest, and Vite production build

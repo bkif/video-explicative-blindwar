@@ -17,5 +17,10 @@
     "noUncheckedIndexedAccess": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "explainer-video/export-video.ts", "explainer-video/renderer.test.ts"]
+  "include": [
+    "vite.config.ts",
+    "explainer-video/audio.ts",
+    "explainer-video/export-video.ts",
+    "explainer-video/renderer.test.ts"
+  ]
 }
