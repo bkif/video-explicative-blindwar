@@ -1,0 +1,36 @@
+{
+  "name": "blind-war-explainer-video",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Programmatic deterministic explainer video pipeline and interactive 60fps player for BLIND WAR by MHLGames",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "render:tutorial-video": "tsx explainer-video/export-video.ts",
+    "render:tutorial-video:vertical": "tsx explainer-video/export-video.ts --vertical"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@napi-rs/canvas": "^0.1.69",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.1",
+    "vite": "^6.2.1",
+    "vitest": "^3.0.8"
+  }
+}
